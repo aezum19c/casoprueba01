@@ -56,9 +56,22 @@ pipeline{
             }
         }
         
-        stage('Results') {
-            agent any
+        stage('Results Unit') {
+            agent { 
+                label 'win-unit-test'
+            }
             steps {
+			    unstash 'test'
+                junit 'result*.xml'
+            }
+        }
+        
+        stage('Results Rest') {
+            agent { 
+                label 'win-test-rest'
+            }
+            steps {
+			    unstash 'test'
                 junit 'result*.xml'
             }
         }
