@@ -1,0 +1,66 @@
+pipeline{
+    agent none
+    
+    stages {
+        stage('Get Code') {
+            agent any
+            steps {
+                //Obtener código del repo
+                git 'https://github.com/aezum19c/casoprueba01.git'
+            }
+        }
+        
+        stage('Build'){
+            agent any
+            steps{
+                echo 'Eyyy, esto es Phyton. No hay que compilar nada!!!'
+                echo WORKSPACE
+                bat 'dir'
+                stash allowEmpty: true, includes: 'app\\**,test\\**', name: 'test'
+            }
+        }
+        
+        stage('Unit') {
+            agent { 
+                label 'win-unit-test'
+            }
+            steps {
+                //Capturar error y continuar con el siguiente stage. Si no esta este catchError entonces no se ejecuta ningun stage mas
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    unstash 'test'
+                    bat '''
+                        set PYTHONPATH=%WORKSPACE%
+                        pytest --junitxml=result-unit.xml test\\unit
+                    '''
+                }
+            }
+        }
+        
+        stage('Rest') {
+            agent { 
+                label 'win-test-rest'
+            }
+            steps {
+                //Despues del flask run poner el siguiente comando para probar caso de exito
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    unstash 'test'
+                    bat '''
+                        set FLASK_APP=app\\api.py
+                        set FLAS_ENV=development
+                        start flask run
+                        start java -jar D:\\MisDocumentos\\UNIR\\DevOPS\\wiremock\\wiremock-standalone-3.3.1.jar --port 9090 --root-dir D:\\MisDocumentos\\UNIR\\DevOPS\\wiremock
+                        set PYTHONPATH=%WORKSPACE%
+                        pytest --junitxml=result-rest.xml test\\rest
+                    '''
+                }
+            }
+        }
+        
+        stage('Results') {
+            agent any
+            steps {
+                junit 'result*.xml'
+            }
+        }
+    }
+}
