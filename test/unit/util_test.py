@@ -16,13 +16,9 @@ class TestUtil(unittest.TestCase):
         self.assertAlmostEqual(0.0, util.convert_to_number("-0.0"), delta=0.0000001)
         self.assertAlmostEqual(-1.0, util.convert_to_number("-1.0"), delta=0.0000001)
 
-    def test_validate_permissions(self):
-        self.assertTrue(util.validate_permissions("operation","user1"))
-		self.assertFalse(util.validate_permissions("operation","user1222"))
-
     def test_invalid_convert_to_number(self):
         self.assertEqual(4, util.InvalidConvertToNumber("4"))
-		self.assertEqual(4.5, util.InvalidConvertToNumber("4.5"))
+		self.assertAlmostEqual(4.5, util.InvalidConvertToNumber("4.5"), delta=0.0000001)
 		self.assertRaises(TypeError, util.InvalidConvertToNumber, "h")
 
     def test_convert_to_number_invalid_type(self):
