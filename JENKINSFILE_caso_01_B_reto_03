@@ -1,0 +1,53 @@
+pipeline {
+    agent any
+    
+    stages {
+        stage('Get Code') {
+            steps {
+                // Obtener código del repo de la rama develop
+                git branch:'feature_fix_coverage', url:'https://github.com/aezum19c/casoprueba01.git'
+            }
+        }
+        
+        stage('Static'){
+            steps {
+        	    bat '''
+        		    flake8 --exit-zero --max-line-length=120 --format=pylint app > flake8.out
+        		'''
+        		recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')], qualityGates:[[threshold:10, type: 'TOTAL', unstable: true],[threshold: 12, type: 'TOTAL', unstable: false]]
+        	}
+        }
+        
+        stage('Cobertura') {
+            steps {
+                bat '''
+                    set PYTHONPATH=%WORKSPACE%
+                    coverage run --branch --source=app --omit=app\\__init__.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
+        			coverage xml
+                '''
+                junit 'result*.xml'
+                cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100,70,80', lineCoverageTargets:'100,80,95', failUnstable: false
+            }
+        }
+        
+        stage('Security') {
+            steps {
+        	    bat '''
+        			bandit --exit-zero -r . -f custom -o bandit.out --severity-level medium --msg-template "{abspath}:{line}: [{test_id}] {msg}"
+        		'''
+        		recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')], qualityGates:[[threshold:1, type: 'TOTAL', unstable: true],[threshold: 2, type: 'TOTAL', unstable: false]]
+        	}
+        }
+        
+        stage('Performance') {
+            steps {
+        	    bat '''
+        	        set FLASK_APP=app\\api.py
+        	        start flask run
+        			D:\\Instaladores\\apache-jmeter-5.5\\bin\\jmeter -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
+        		'''
+        		perfReport sourceDataFiles: 'flask.jtl'
+        	}
+        }
+    }
+}
