@@ -32,21 +32,3 @@ class Calculator:
     def check_types(self, x, y):
         if not isinstance(x, (int, float)) or                                                not isinstance(y, (int, float)):
             raise TypeError("Parameters must be numbers")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    calc = Calculator()
-    result = calc.add(2, 2)
-    print("suma: 2 + 2 = ",result)
-
-    result = calc.substract(8, 3)
-    print("resta: 8 - 3 = ",result)
-
-    result = calc.multiply(7, 4)
-    print("multiplicacion: 7 * 4 = ",result)
-
-    result = calc.divide(48, 3)
-    print("division: 48 / 3 = ",result)
-
-    result = calc.power(4, 3)
-    print("potencia: 4 ^ 3 = ",result)
