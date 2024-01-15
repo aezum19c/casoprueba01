@@ -4,50 +4,57 @@ pipeline {
     stages {
         stage('Get Code') {
             steps {
-                // Obtener código del repo
+                // Obtener código del repo de la rama develop
                 git branch: 'develop', url: 'https://github.com/aezum19c/casoprueba01.git'
             }
         }
         
-        stage('Build'){
-            steps{
-                echo 'Eyyy, esto es Phyton. No hay que compilar nada!!!'
-                echo WORKSPACE
-                bat 'dir'
-            }
+        stage('Static'){
+            steps {
+        	    bat '''
+        		    flake8 --exit-zero --format=pylint app > flake8.out
+        		'''
+        		recordIssues tools: [flake8(name: 'Flake8', pattern: 'flake8.out')], qualityGates:[[threshold:10, type: 'TOTAL', unstable: true],[threshold: 12, type: 'TOTAL', unstable: false]]
+        	}
         }
         
         stage('Unit') {
             steps {
-                //Capturar error y continuar con el siguiente stage. Si no esta este catchError entonces no se ejecuta ningun stage mas
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    bat '''
-                        set PYTHONPATH=%WORKSPACE%
-                        pytest --junitxml=result-unit.xml test\\unit
-                    '''
-                }
-            }
-        }
-        
-        stage('Rest') {
-            steps {
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    bat '''
-                        set FLASK_APP=app\\api.py
-                        set FLAS_ENV=development
-                        start flask run
-                        start java -jar D:\\MisDocumentos\\UNIR\\DevOPS\\wiremock\\wiremock-standalone-3.3.1.jar --port 9090 --root-dir D:\\MisDocumentos\\UNIR\\DevOPS\\wiremock
-                        set PYTHONPATH=%WORKSPACE%
-                        pytest --junitxml=result-rest.xml test\\rest
-                    '''
-                }
-            }
-        }
-        
-        stage('Results') {
-            steps {
+                bat '''
+                    set PYTHONPATH=%WORKSPACE%
+                    coverage run --branch --source=app --omit=app\\__init__.py,app\\api.py -m pytest --junitxml=result-unit.xml test\\unit
+                '''
                 junit 'result*.xml'
             }
+        }
+        
+        stage('Cobertura') {
+            steps {
+        	    bat '''
+        			coverage xml
+        		'''
+        		cobertura coberturaReportFile: 'coverage.xml', conditionalCoverageTargets: '100,70,80', lineCoverageTargets:'100,80,95', failUnstable: false
+        	}
+        }
+        
+        stage('Security') {
+            steps {
+        	    bat '''
+        			bandit --exit-zero -r . -f custom -o bandit.out --severity-level medium --msg-template "{abspath}:{line}: [{test_id}] {msg}"
+        		'''
+        		recordIssues tools: [pyLint(name: 'Bandit', pattern: 'bandit.out')], qualityGates:[[threshold:1, type: 'TOTAL', unstable: true],[threshold: 2, type: 'TOTAL', unstable: false]]
+        	}
+        }
+        
+        stage('Performance') {
+            steps {
+        	    bat '''
+        	        set FLASK_APP=app\\api.py
+        	        start flask run
+        			D:\\Instaladores\\apache-jmeter-5.5\\bin\\jmeter -n -t test\\jmeter\\flask.jmx -f -l flask.jtl
+        		'''
+        		perfReport sourceDataFiles: 'flask.jtl'
+        	}
         }
     }
 }
